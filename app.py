@@ -10,7 +10,7 @@ from llama_index import download_loader
 
 # Setting page title and header
 st.set_page_config(page_title="YouTubeGPT", page_icon=":robot_face:")
-st.markdown("<h1 style='text-align: center;'>YouTube Video based chatbot 😬</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>YouTube Video based chatbot</h1>", unsafe_allow_html=True)
 
 # Initialize session state variables
 if 'generated' not in st.session_state:
