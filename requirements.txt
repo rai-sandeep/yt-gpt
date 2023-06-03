@@ -2,4 +2,3 @@ streamlit
 streamlit_chat
 langchain
 llama_index
-faiss
