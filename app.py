@@ -1,4 +1,3 @@
-import openai
 import streamlit as st
 from streamlit_chat import message
 from langchain.chat_models import ChatOpenAI
@@ -8,7 +7,6 @@ from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
 from llama_index import download_loader
-import os
 
 # Setting page title and header
 st.set_page_config(page_title="YouTubeGPT", page_icon=":robot_face:")
@@ -139,4 +137,3 @@ if st.session_state['generated']:
         for i in range(len(st.session_state['generated'])):
             message(st.session_state["past"][i], is_user=True, key=str(i) + '_user')
             message(st.session_state["generated"][i], key=str(i))
-            
