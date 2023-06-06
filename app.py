@@ -18,7 +18,7 @@ if 'generated' not in st.session_state:
 if 'past' not in st.session_state:
     st.session_state['past'] = []
 if 'messages' not in st.session_state:
-    st.session_state['messages'] = [{"role": "system", "content": "You are a helpful assistant."}]
+    st.session_state['messages'] = [{"role": "system", "content": "You are a helpful assistant. You will be provided with the transcript of a YouTube video. You will then answer questions based on the content of the transcript."}]
 if 'model_name' not in st.session_state:
     st.session_state['model_name'] = []
 if 'cost' not in st.session_state:
@@ -61,7 +61,7 @@ memory = init_memory()
 if clear_button:
     st.session_state['generated'] = []
     st.session_state['past'] = []
-    st.session_state['messages'] = [{"role": "system", "content": "You are a helpful assistant."}]
+    st.session_state['messages'] = [{"role": "system", "content": "You are a helpful assistant. You will be provided with the transcript of a YouTube video. You will then answer questions based on the content of the transcript."}]
     st.session_state['number_tokens'] = []
     st.session_state['model_name'] = []
     st.session_state['cost'] = []
@@ -72,7 +72,9 @@ if clear_button:
 
 def prepare(video_link):
     YoutubeTranscriptReader = download_loader("YoutubeTranscriptReader")
+    
     documents = YoutubeTranscriptReader().load_data(ytlinks=[video_link])
+
 
     documents = [doc.to_langchain_format() for doc in documents]
     text_splitter = RecursiveCharacterTextSplitter()
