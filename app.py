@@ -5,12 +5,16 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferWindowMemory
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains.summarize import load_summarize_chain
 from langchain.embeddings import OpenAIEmbeddings
+from langchain import PromptTemplate
 from llama_index import download_loader
 
 # Setting page title and header
 st.set_page_config(page_title="YouTubeGPT", page_icon=":robot_face:")
 st.markdown("<h1 style='text-align: center;'>YouTube Video based chatbot</h1>", unsafe_allow_html=True)
+
+system_message = "You are a chatbot based on the contents of a YouTube video. You will be provided with a question, relevent context from the YouTube video transcript and the chat history. Using this information, you will answer the question in a friendly and conversational manner."
 
 # Initialize session state variables
 if 'generated' not in st.session_state:
@@ -18,7 +22,7 @@ if 'generated' not in st.session_state:
 if 'past' not in st.session_state:
     st.session_state['past'] = []
 if 'messages' not in st.session_state:
-    st.session_state['messages'] = [{"role": "system", "content": "You are a helpful assistant. You will be provided with the transcript of a YouTube video. You will then answer questions based on the content of the transcript."}]
+    st.session_state['messages'] = [{"role": "system", "content": system_message}]
 if 'model_name' not in st.session_state:
     st.session_state['model_name'] = []
 if 'cost' not in st.session_state:
@@ -33,6 +37,8 @@ if "video_link" not in st.session_state:
     st.session_state["video_link"] = ""
 if "conversation" not in st.session_state:
     st.session_state["conversation"] = []
+if "transcript_summary" not in st.session_state:
+    st.session_state["transcript_summary"] = ""
 
 # Sidebar - let user choose model, show total cost of current conversation, and let user clear the current conversation
 st.sidebar.title("Sidebar")
@@ -61,7 +67,7 @@ memory = init_memory()
 if clear_button:
     st.session_state['generated'] = []
     st.session_state['past'] = []
-    st.session_state['messages'] = [{"role": "system", "content": "You are a helpful assistant. You will be provided with the transcript of a YouTube video. You will then answer questions based on the content of the transcript."}]
+    st.session_state['messages'] = [{"role": "system", "content": system_message}]
     st.session_state['number_tokens'] = []
     st.session_state['model_name'] = []
     st.session_state['cost'] = []
@@ -69,21 +75,25 @@ if clear_button:
     st.session_state['total_tokens'] = []
     st.session_state['video_disabled'] = False
     st.session_state['video_link'] = ""
+    st.session_state["transcript_summary"] = ""
 
 def prepare(video_link):
+    # Load transcript data
     YoutubeTranscriptReader = download_loader("YoutubeTranscriptReader")
-    
     documents = YoutubeTranscriptReader().load_data(ytlinks=[video_link])
 
-
+    # Convert documents to langchain format
     documents = [doc.to_langchain_format() for doc in documents]
+    
+    # Split documents into smaller parts
     text_splitter = RecursiveCharacterTextSplitter()
     documents = text_splitter.split_documents(documents)
 
+    # Create embeddings and retriever
     embeddings = OpenAIEmbeddings()
     retriever = FAISS.from_documents(documents, embeddings).as_retriever(k=4)
 
-    llm = ChatOpenAI(temperature=1, model_name=model, max_tokens=2048)
+    llm = ChatOpenAI(temperature=0.2, model_name=model, max_tokens=2048)
 
     conversation = ConversationalRetrievalChain.from_llm(
         llm=llm,
@@ -93,6 +103,34 @@ def prepare(video_link):
         max_tokens_limit=1536
     )
     st.session_state["conversation"] = conversation
+
+    prompt_template = """Write a detailed summary of the following:
+
+
+    {text}
+    """
+
+    combine_template = """Write a detailed summary of the following in numbered list format:
+
+
+    {text}
+    """
+
+    PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
+    COMBINE = PromptTemplate(template=combine_template, input_variables=["text"])
+
+    # Generate summary of the transcript
+    chain = load_summarize_chain(llm, chain_type="map_reduce", map_prompt=PROMPT, combine_prompt=COMBINE)
+    summary = chain.run(documents)
+
+    # Add summary to the conversation
+    #st.session_state["conversation"].add_system_message(summary)
+
+    st.session_state["transcript_summary"] = summary
+
+    st.session_state['messages'].append({"role": "user", "content": "Summarize the video"})
+    st.session_state['messages'].append({"role": "assistant", "content": summary})
+
 
 def video_disable():
     st.session_state["video_disabled"] = True
@@ -115,8 +153,12 @@ video_input = st.text_input("Enter the YouTube link: ", key='video',
                             disabled=st.session_state.video_disabled, 
                             on_change=video_disable)
 
-if video_input:
-    prepare(video_input)
+if video_input and not st.session_state["transcript_summary"]:
+    prepare(video_input)   
+
+if st.session_state["transcript_summary"]:
+    st.header("Summary:")
+    st.write(st.session_state["transcript_summary"])
 
 # Container for chat history
 response_container = st.container()
