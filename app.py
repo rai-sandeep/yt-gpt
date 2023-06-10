@@ -37,8 +37,6 @@ if "video_link" not in st.session_state:
     st.session_state["video_link"] = ""
 if "conversation" not in st.session_state:
     st.session_state["conversation"] = []
-if "transcript_summary" not in st.session_state:
-    st.session_state["transcript_summary"] = ""
 
 # Sidebar - let user choose model, show total cost of current conversation, and let user clear the current conversation
 st.sidebar.title("Sidebar")
@@ -57,7 +55,6 @@ def init_memory():
     return ConversationBufferWindowMemory(
         memory_key='chat_history',
         return_messages=True,
-        output_key='answer',
         k=6
     )
 
@@ -75,9 +72,9 @@ if clear_button:
     st.session_state['total_tokens'] = []
     st.session_state['video_disabled'] = False
     st.session_state['video_link'] = ""
-    st.session_state["transcript_summary"] = ""
 
 def prepare(video_link):
+    st.session_state['video_link'] = video_link
     # Load transcript data
     YoutubeTranscriptReader = download_loader("YoutubeTranscriptReader")
     documents = YoutubeTranscriptReader().load_data(ytlinks=[video_link])
@@ -98,38 +95,11 @@ def prepare(video_link):
     conversation = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=retriever,
-        # verbose=True,
+        #verbose=True,
         memory=memory,
         max_tokens_limit=1536
     )
     st.session_state["conversation"] = conversation
-
-    prompt_template = """Write a detailed summary of the following:
-
-
-    {text}
-    """
-
-    combine_template = """Write a detailed summary of the following in numbered list format:
-
-
-    {text}
-    """
-
-    PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
-    COMBINE = PromptTemplate(template=combine_template, input_variables=["text"])
-
-    # Generate summary of the transcript
-    chain = load_summarize_chain(llm, chain_type="map_reduce", map_prompt=PROMPT, combine_prompt=COMBINE)
-    summary = chain.run(documents)
-
-    # Add summary to the conversation
-    #st.session_state["conversation"].add_system_message(summary)
-
-    st.session_state["transcript_summary"] = summary
-
-    st.session_state['messages'].append({"role": "user", "content": "Summarize the video"})
-    st.session_state['messages'].append({"role": "assistant", "content": summary})
 
 
 def video_disable():
@@ -153,12 +123,8 @@ video_input = st.text_input("Enter the YouTube link: ", key='video',
                             disabled=st.session_state.video_disabled, 
                             on_change=video_disable)
 
-if video_input and not st.session_state["transcript_summary"]:
+if video_input and not st.session_state['video_link']:
     prepare(video_input)   
-
-if st.session_state["transcript_summary"]:
-    st.header("Summary:")
-    st.write(st.session_state["transcript_summary"])
 
 # Container for chat history
 response_container = st.container()
